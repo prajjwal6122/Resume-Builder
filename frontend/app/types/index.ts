@@ -110,6 +110,13 @@ export interface Resource {
   when_to_use?: string;
 }
 
+export interface LearningPhase {
+  phase: number;
+  title: string;
+  topics: string[];
+  project: string;
+}
+
 export interface LearningSkill {
   priority: number;
   skill: string;
@@ -118,11 +125,16 @@ export interface LearningSkill {
   target_level: number;
   estimated_hours: number;
   weeks_at_5hrs?: number;
+  weeks_at_10hrs?: number;
   importance: 'critical' | 'high' | 'medium' | 'low';
+  adjacency_bonus?: number;
+  is_adjacent_skill?: boolean;
+  unlocks?: string[];
   why_important: string;
   prerequisites: Array<{ skill: string; status: string }>;
+  phases?: LearningPhase[];
   resources: Resource[];
-  projects: Array<{ title: string; description: string; duration_hours?: number }>;
+  projects: Array<{ title: string; description: string; hours?: number; duration_hours?: number }>;
 }
 
 export interface PlanSummary {
@@ -131,13 +143,27 @@ export interface PlanSummary {
   weeks_10hrs_per_week: number;
   estimated_completion: string;
   difficulty: string;
+  adjacent_skills_count?: number;
+  skills_count?: number;
+}
+
+export interface TimelineEntry {
+  week_start: number;
+  week_end: number;
+  skill: string;
+  phase: number;
+  title: string;
+  topics: string[];
+  milestone: string;
+  hours: number;
 }
 
 export interface LearningPlan {
   summary: PlanSummary;
   skills: LearningSkill[];
-  timeline: Record<string, { focus: string; hours: number; milestone: string }>;
+  timeline: TimelineEntry[];
   success_criteria: string[];
+  narrative?: string;
 }
 
 // ═══════════════════════════════════════

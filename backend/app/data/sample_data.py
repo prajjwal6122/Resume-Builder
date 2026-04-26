@@ -262,33 +262,33 @@ SAMPLE_RESULTS = {
 }
 
 SAMPLE_LEARNING_PLAN = {
+    "narrative": (
+        "Your foundation in Python, PostgreSQL, and Flask is solid — you're not starting from scratch. "
+        "Testing/TDD builds directly on your Python knowledge, so expect faster progress there than the hours suggest. "
+        "Docker is adjacent to your Linux/AWS work. At 10 hrs/week, this roadmap takes ~10 weeks — "
+        "realistic without burning out."
+    ),
     "summary": {
         "total_hours": 95,
         "weeks_5hrs_per_week": 19,
         "weeks_10hrs_per_week": 10,
-        "estimated_completion": "~10 weeks at 10hrs/week",
-        "difficulty": "medium"
+        "estimated_completion": "~10 weeks at 10 hrs/week",
+        "difficulty": "medium",
+        "adjacent_skills_count": 2,
+        "skills_count": 4,
     },
     "skills": [
         {
             "priority": 1,
-            "skill": "Testing/TDD",
+            "skill": "Testing & TDD (pytest)",
             "category": "methodology",
             "current_level": 0,
             "target_level": 4,
-            "estimated_hours": 32,
-            "weeks_at_5hrs": 7,
+            "estimated_hours": 30,
+            "weeks_at_5hrs": 6,
             "importance": "critical",
-            "why_important": "The JD lists Testing/TDD as critical priority — but it's completely absent from your resume. This is your biggest risk factor for rejection. The good news: once you have it, it also unlocks CI/CD and Test Architecture much faster.",
-            "prerequisites": [{"skill": "Python", "status": "already_have"}],
-            "learning_phases": [
-                {"title": "Why tests matter + pytest basics",        "duration_hours": 4},
-                {"title": "Unit testing patterns + mocking",         "duration_hours": 6},
-                {"title": "Test-driven development workflow",        "duration_hours": 8},
-                {"title": "Integration tests + coverage reporting",  "duration_hours": 6},
-                {"title": "Build project: test-driven REST API",     "duration_hours": 8},
-            ],
-            "adjacent_skills_unlocked": ["CI/CD", "Test Architecture"],
+            "why_important": "This JD explicitly requires TDD experience. You have 0 testing background — this is the #1 gap between you and the role. Senior engineers who can't write tests are a liability.",
+            "prerequisites": [{"skill": "Python", "target_level": 3, "status": "already_have"}],
             "resources": [
                 {
                     "title": "pytest Official Documentation",
@@ -300,7 +300,7 @@ SAMPLE_LEARNING_PLAN = {
                     "rating": 4.9
                 },
                 {
-                    "title": "Python Testing with pytest — Brian Okken",
+                    "title": "Python Testing with pytest (Brian Okken)",
                     "url": "https://pragprog.com/titles/bopytest2/python-testing-with-pytest/",
                     "type": "book",
                     "difficulty": "beginner-intermediate",
@@ -309,50 +309,30 @@ SAMPLE_LEARNING_PLAN = {
                     "rating": 4.8
                 },
                 {
-                    "title": "Test-Driven Development with Python — Harry Percival",
+                    "title": "Test-Driven Development with Python (Harry Percival)",
                     "url": "https://www.obeythetestinggoat.com/",
                     "type": "book",
                     "difficulty": "intermediate",
                     "duration_hours": 20,
                     "cost": "free",
                     "rating": 4.7
-                },
-                {
-                    "title": "Real Python — Testing in Python",
-                    "url": "https://realpython.com/python-testing/",
-                    "type": "tutorial",
-                    "difficulty": "beginner",
-                    "duration_hours": 3,
-                    "cost": "free",
-                    "rating": 4.8
                 }
-            ],
-            "projects": [
-                {"title": "Test-first REST API", "description": "Write all tests before any implementation code. Use pytest + httpx + factory-boy.", "duration_hours": 8},
-                {"title": "Mutation testing audit", "description": "Run mutmut on an existing project and fix the surviving mutants.", "duration_hours": 4}
             ]
         },
         {
             "priority": 2,
-            "skill": "Docker",
+            "skill": "Docker & Containerization",
             "category": "tool",
             "current_level": 2,
             "target_level": 5,
             "estimated_hours": 25,
             "weeks_at_5hrs": 5,
             "importance": "high",
-            "why_important": "The JD lists Docker as high priority. Your resume claims Docker experience but your assessment showed basic familiarity only. The gap (claimed vs actual) was flagged by our anti-bluff detector. Solidifying this skill will make you much more confident in interviews and pass technical screens.",
-            "prerequisites": [{"skill": "Linux", "status": "need_to_learn_first"}],
-            "learning_phases": [
-                {"title": "Containers vs VMs + Docker basics",        "duration_hours": 3},
-                {"title": "Writing Dockerfiles + multi-stage builds", "duration_hours": 4},
-                {"title": "Docker Compose + networking",              "duration_hours": 5},
-                {"title": "Build project: containerize your app",     "duration_hours": 6},
-            ],
-            "adjacent_skills_unlocked": ["CI/CD", "Docker Compose", "Kubernetes"],
+            "why_important": "Docker is required by the JD. Your current experience is basic — you need to be comfortable with multi-stage builds, Docker Compose, and production optimization.",
+            "prerequisites": [{"skill": "Linux basics", "target_level": 2, "status": "need_basics"}],
             "resources": [
                 {
-                    "title": "Docker Official Get Started Guide",
+                    "title": "Docker Official Documentation",
                     "url": "https://docs.docker.com/get-started/",
                     "type": "documentation",
                     "difficulty": "beginner",
@@ -368,44 +348,23 @@ SAMPLE_LEARNING_PLAN = {
                     "duration_hours": 19,
                     "cost": "$14.99",
                     "rating": 4.8
-                },
-                {
-                    "title": "Play with Docker — Hands-on Labs",
-                    "url": "https://labs.play-with-docker.com/",
-                    "type": "interactive",
-                    "difficulty": "beginner",
-                    "duration_hours": 4,
-                    "cost": "free",
-                    "rating": 4.6
                 }
-            ],
-            "projects": [
-                {"title": "Multi-stage Dockerfile", "description": "Containerize your existing portfolio project with a multi-stage build that produces a < 100MB image.", "duration_hours": 6},
-                {"title": "Docker Compose full stack", "description": "Spin up app + PostgreSQL + Redis + Nginx with a single docker-compose up.", "duration_hours": 5}
             ]
         },
         {
             "priority": 3,
-            "skill": "CI/CD",
+            "skill": "CI/CD Pipelines",
             "category": "devops",
             "current_level": 2,
-            "target_level": 4.5,
+            "target_level": 4,
             "estimated_hours": 20,
             "weeks_at_5hrs": 4,
             "importance": "high",
-            "why_important": "The JD lists CI/CD as high priority — it's missing from your resume. This is your biggest risk factor for rejection. The good news: once you have it, it also unlocks Kubernetes and Infrastructure as Code much faster.",
+            "why_important": "The JD requires CI/CD experience. Your assessment showed surprising knowledge here — you just need to formalize and practice it.",
             "prerequisites": [
-                {"skill": "Git", "status": "already_have"},
-                {"skill": "Docker", "status": "need_to_learn_first"},
-                {"skill": "Testing/TDD", "status": "need_to_learn_first"}
+                {"skill": "Docker", "target_level": 3, "status": "learning"},
+                {"skill": "Testing", "target_level": 3, "status": "learning"}
             ],
-            "learning_phases": [
-                {"title": "CI/CD concepts + GitHub Actions intro",   "duration_hours": 3},
-                {"title": "Pipeline: lint → test → build",           "duration_hours": 5},
-                {"title": "Secrets, environments, deployment gates", "duration_hours": 4},
-                {"title": "Build project: full pipeline for a repo", "duration_hours": 5},
-            ],
-            "adjacent_skills_unlocked": ["Kubernetes", "Infrastructure as Code"],
             "resources": [
                 {
                     "title": "GitHub Actions Documentation",
@@ -425,6 +384,12 @@ SAMPLE_LEARNING_PLAN = {
                     "cost": "$30",
                     "rating": 4.8
                 }
+            ]
+        },
+        {
+            "priority": 4,
+            "skill": "Advanced Python Patterns",
+            "category": "programming-language",
             "current_level": 5.5,
             "target_level": 7,
             "estimated_hours": 20,

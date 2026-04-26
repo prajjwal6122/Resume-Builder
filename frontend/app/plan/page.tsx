@@ -1,447 +1,441 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAssessmentStore } from '@/app/store/assessmentStore';
 import type { LearningSkill, Resource } from '@/app/types';
 
-// ─── Constants ──────────────────────────────────────────────
-const IMPORTANCE_STYLES: Record<string, { bg: string; color: string; border: string; label: string }> = {
-  critical: { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA', label: 'Critical' },
-  high:     { bg: '#FEF3C7', color: '#D97706', border: '#FDE68A', label: 'High' },
-  medium:   { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE', label: 'Medium' },
-  low:      { bg: '#F8FAFC', color: '#64748B', border: '#E2E8F0', label: 'Low' },
+/* ══════════════════════════════════════════════════
+   RESOURCE CARD
+   ══════════════════════════════════════════════════ */
+const R_ICONS: Record<string, string> = {
+  course:'🎓', book:'📚', documentation:'📖',
+  video:'🎬', tutorial:'💻', blog:'✍️', interactive:'🎮',
+};
+const R_COLORS: Record<string, string> = {
+  course:'var(--blue-100)', book:'var(--purple-100)', documentation:'var(--emerald-100)',
+  video:'var(--red-100)',   tutorial:'var(--amber-100)', blog:'var(--bg-subtle)',
+  interactive:'var(--emerald-100)',
 };
 
-const RESOURCE_ICONS: Record<string, string> = {
-  course: '🎓', book: '📚', documentation: '📖', video: '🎥',
-  tutorial: '💻', blog: '✍️', interactive: '🎮', default: '📌',
-};
-
-const PHASE_COLORS = [
-  'linear-gradient(135deg, #2563EB, #60A5FA)',
-  'linear-gradient(135deg, #7C3AED, #A78BFA)',
-  'linear-gradient(135deg, #059669, #34D399)',
-  'linear-gradient(135deg, #EA580C, #FB923C)',
-  'linear-gradient(135deg, #DC2626, #F87171)',
-];
-
-// ─── Resource Card ───────────────────────────────────────────
 function ResourceCard({ r }: { r: Resource }) {
-  const icon = RESOURCE_ICONS[r.type] || RESOURCE_ICONS.default;
-  const isFree = r.cost === 'free';
   return (
-    <a href={r.url} target="_blank" rel="noopener noreferrer" className="resource-card">
-      <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+    <a href={r.url} target="_blank" rel="noopener noreferrer"
+       className="flex items-start gap-3 p-3 rounded-xl transition-all group"
+       style={{ background: 'white', border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-sm)' }}
+       onMouseOver={e => {
+         (e.currentTarget as HTMLElement).style.borderColor = 'var(--blue-200)';
+         (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
+       }}
+       onMouseOut={e => {
+         (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+         (e.currentTarget as HTMLElement).style.transform = '';
+       }}>
+      <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0"
+           style={{ background: R_COLORS[r.type] || 'var(--bg-subtle)' }}>
+        {R_ICONS[r.type] || '📌'}
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-semibold truncate" style={{ color: 'var(--txt-primary)' }}>
           {r.title}
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'capitalize' }}>{r.type}</span>
-          {r.duration_hours && (
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {r.duration_hours}h</span>
-          )}
-          <span style={{ fontSize: 11, fontWeight: 700, color: isFree ? '#16A34A' : '#D97706' }}>
-            {isFree ? '✓ Free' : r.cost}
+        </h4>
+        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+          <span className="text-xs capitalize" style={{ color: 'var(--txt-muted)' }}>{r.type}</span>
+          {r.duration_hours && <span className="text-xs" style={{ color: 'var(--txt-muted)' }}>· {r.duration_hours}h</span>}
+          <span className="text-xs font-semibold" style={{ color: r.cost === 'free' ? '#059669' : 'var(--amber-500)' }}>
+            {r.cost === 'free' ? '✓ Free' : r.cost}
           </span>
-          {r.rating && (
-            <span style={{ fontSize: 11, color: '#F59E0B' }}>★ {r.rating}</span>
-          )}
+          {r.rating && <span className="text-xs" style={{ color: 'var(--amber-500)' }}>★ {r.rating}</span>}
         </div>
       </div>
-      <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>↗</span>
+      <span className="text-sm opacity-30 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--blue-600)' }}>↗</span>
     </a>
   );
 }
 
-// ─── Skill Path Card ─────────────────────────────────────────
-function SkillPathCard({ skill, index, isExpanded, onToggle }: {
-  skill: LearningSkill; index: number; isExpanded: boolean; onToggle: () => void;
-}) {
-  const imp = IMPORTANCE_STYLES[skill.importance] || IMPORTANCE_STYLES.medium;
-  const gradient = PHASE_COLORS[index % PHASE_COLORS.length];
-  const progressPct = Math.round((skill.current_level / 8) * 100);
-  const targetPct = Math.round((skill.target_level / 8) * 100);
+/* ══════════════════════════════════════════════════
+   PHASE STEP  (learn → apply → master)
+   ══════════════════════════════════════════════════ */
+function PhaseStep({ phase, isLast }: { phase: { phase: number; title: string; topics: string[]; project: string }; isLast: boolean }) {
+  const colors = ['var(--blue-600)', '#7C3AED', '#059669'];
+  const bgs    = ['var(--blue-50)', 'var(--purple-100)', 'var(--emerald-100)'];
+  const c = colors[(phase.phase - 1) % 3];
+  const bg = bgs[(phase.phase - 1) % 3];
 
   return (
-    <div className={`path-card${isExpanded ? ' expanded' : ''}`} onClick={onToggle}
-      style={{ position: 'relative', overflow: 'hidden' }}>
-      {/* Left accent line */}
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: gradient, borderRadius: '16px 0 0 16px' }} />
+    <div className={`relative flex gap-4 ${!isLast ? 'phase-connector' : ''}`}>
+      {/* Circle */}
+      <div className="shrink-0 flex flex-col items-center">
+        <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm border-2"
+             style={{ background: bg, borderColor: c, color: c }}>
+          {phase.phase}
+        </div>
+      </div>
 
-      <div style={{ paddingLeft: 16 }}>
-        {/* Header row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-          {/* Priority bubble */}
-          <div style={{
-            width: 42, height: 42, borderRadius: 12, background: gradient,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontWeight: 800, fontSize: 18,
-            fontFamily: 'Bricolage Grotesque, sans-serif', flexShrink: 0
-          }}>
-            {skill.priority}
+      {/* Content */}
+      <div className="flex-1 pb-6">
+        <div className="card" style={{ padding: '16px 20px' }}>
+          <h4 className="font-bold mb-1" style={{ color: 'var(--txt-primary)' }}>{phase.title}</h4>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {phase.topics.map(t => (
+              <span key={t} className="badge badge-neutral text-xs">{t}</span>
+            ))}
           </div>
-
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 800, fontFamily: 'Bricolage Grotesque, sans-serif' }}>{skill.skill}</h3>
-              <span style={{
-                padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
-                background: imp.bg, color: imp.color, border: `1px solid ${imp.border}`,
-                textTransform: 'uppercase', letterSpacing: '0.05em'
-              }}>{imp.label}</span>
-            </div>
-
-            {/* Meta row */}
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, color: 'var(--text-muted)' }}>
-              <span>⏱ <strong style={{ color: 'var(--text)' }}>{skill.estimated_hours}h</strong> total</span>
-              {skill.weeks_at_5hrs && <span>📅 <strong style={{ color: 'var(--text)' }}>{skill.weeks_at_5hrs} weeks</strong> @ 5h/wk</span>}
-              <span>📈 Level {skill.current_level.toFixed(0)} → {skill.target_level.toFixed(0)}</span>
+          <div className="rounded-lg p-3 text-sm flex items-start gap-2"
+               style={{ background: bg, border: `1px solid ${c}30` }}>
+            <span>🛠️</span>
+            <div>
+              <span className="font-semibold" style={{ color: c }}>Project milestone: </span>
+              <span style={{ color: 'var(--txt-secondary)' }}>{phase.project}</span>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          {/* Expand toggle */}
-          <div style={{ color: 'var(--text-muted)', fontSize: 13, flexShrink: 0, paddingTop: 4 }}>
-            {isExpanded ? '▲ Collapse' : '▼ See Roadmap'}
+/* ══════════════════════════════════════════════════
+   SKILL ROW CARD  (expandable)
+   ══════════════════════════════════════════════════ */
+const IMP_STYLE: Record<string, { badge: string; accent: string }> = {
+  critical: { badge: 'badge-critical', accent: '#DC2626' },
+  high:     { badge: 'badge-high',     accent: '#D97706' },
+  medium:   { badge: 'badge-medium',   accent: 'var(--blue-600)' },
+  low:      { badge: 'badge-low',      accent: 'var(--txt-muted)' },
+};
+
+function SkillRow({ skill, idx, open, toggle }: {
+  skill: LearningSkill; idx: number; open: boolean; toggle: () => void;
+}) {
+  const imp = IMP_STYLE[skill.importance] || IMP_STYLE.medium;
+  const pctCurrent = (skill.current_level / 8) * 100;
+  const pctTarget  = (skill.target_level  / 8) * 100;
+
+  return (
+    <div className={`card transition-all ${open ? 'shadow-md' : ''}`}
+         style={{ borderColor: open ? 'var(--blue-200)' : 'var(--border)' }}>
+
+      {/* Header button */}
+      <button onClick={toggle} className="w-full text-left">
+        <div className="flex items-start gap-4">
+          {/* Priority badge */}
+          <div className="w-9 h-9 rounded-xl gradient-blue flex items-center justify-center text-white font-black text-sm shrink-0">
+            {idx}
           </div>
-        </div>
 
-        {/* Level progress */}
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 80 }}>Current level</span>
-          <div style={{ flex: 1, position: 'relative', height: 10, background: 'var(--gray-100)', borderRadius: 99 }}>
-            {/* Target marker */}
-            <div style={{
-              position: 'absolute', top: -3, bottom: -3,
-              left: `${targetPct}%`,
-              width: 2, background: 'var(--gray-300)',
-              borderRadius: 1
-            }} />
-            {/* Current fill */}
-            <div style={{
-              position: 'absolute', left: 0, top: 0, bottom: 0,
-              width: `${progressPct}%`,
-              background: gradient, borderRadius: 99
-            }} />
-            {/* Target label */}
-            <div style={{
-              position: 'absolute', top: -18, left: `${targetPct}%`,
-              fontSize: 9, color: 'var(--text-muted)', transform: 'translateX(-50%)',
-              whiteSpace: 'nowrap', fontWeight: 700
-            }}>Target</div>
-          </div>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 50, textAlign: 'right' }}>
-            {skill.current_level.toFixed(0)}/8 → {skill.target_level.toFixed(0)}/8
-          </span>
-        </div>
+          {/* Main info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h3 className="font-bold text-lg" style={{ color: 'var(--txt-primary)' }}>{skill.skill}</h3>
+              <span className={`badge ${imp.badge}`}>{skill.importance}</span>
+              {(skill as any).is_adjacent_skill && (
+                <span className="badge badge-success">⚡ Adjacent — fast to acquire</span>
+              )}
+            </div>
 
-        {/* Why important (always visible) */}
-        <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.65 }}>
-          {skill.why_important}
-        </div>
-
-        {/* Expanded content */}
-        {isExpanded && (
-          <div className="anim-fade-up" style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-
-            {/* Prerequisites */}
-            {skill.prerequisites && skill.prerequisites.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 10 }}>
-                  Prerequisites
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {skill.prerequisites.map((p, i) => (
-                    <span key={i} style={{
-                      padding: '5px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600,
-                      background: p.status === 'already_have' ? '#DCFCE7' : '#EFF6FF',
-                      color: p.status === 'already_have' ? '#16A34A' : '#2563EB',
-                      border: `1px solid ${p.status === 'already_have' ? '#BBF7D0' : '#BFDBFE'}`,
-                    }}>
-                      {p.status === 'already_have' ? '✓' : '→'} {p.skill}
-                    </span>
-                  ))}
-                </div>
+            {/* Progress bars */}
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-xs w-16 shrink-0" style={{ color: 'var(--txt-muted)' }}>Now</span>
+              <div className="flex-1 progress-track">
+                <div className="h-full rounded-full" style={{ width: `${pctCurrent}%`, background: '#CBD5E1', transition: 'width 0.8s ease' }} />
               </div>
-            )}
+              <span className="text-xs w-5 text-right" style={{ color: 'var(--txt-muted)' }}>{skill.current_level.toFixed(0)}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs w-16 shrink-0" style={{ color: 'var(--txt-muted)' }}>Target</span>
+              <div className="flex-1 progress-track">
+                <div className="h-full rounded-full" style={{ width: `${pctTarget}%`, background: imp.accent, transition: 'width 0.8s ease' }} />
+              </div>
+              <span className="text-xs w-5 text-right font-bold" style={{ color: imp.accent }}>{skill.target_level.toFixed(0)}</span>
+            </div>
+          </div>
 
-            {/* Learning phases */}
-            {skill.learning_phases && skill.learning_phases.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 12 }}>
+          {/* Time estimate */}
+          <div className="text-right shrink-0">
+            <div className="font-black text-xl gradient-text">{skill.estimated_hours}h</div>
+            <div className="text-xs" style={{ color: 'var(--txt-muted)' }}>
+              ~{skill.weeks_at_5hrs}w @ 5h/wk
+            </div>
+          </div>
+        </div>
+
+        {/* Why */}
+        <p className="text-sm mt-3 leading-relaxed text-left"
+           style={{ color: 'var(--txt-secondary)' }}>{skill.why_important}</p>
+
+        {/* Unlocks */}
+        {(skill as any).unlocks?.length > 0 && (
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <span className="text-xs" style={{ color: 'var(--txt-muted)' }}>Unlocks:</span>
+            {(skill as any).unlocks.map((u: string) => (
+              <span key={u} className="badge badge-purple text-xs">{u}</span>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 text-xs font-semibold" style={{ color: 'var(--blue-600)' }}>
+          {open ? '▲ Hide details' : '▼ Show phases & resources'}
+        </div>
+      </button>
+
+      {/* Expanded: phases + resources */}
+      {open && (
+        <div className="mt-4 pt-4 border-t anim-fade-in" style={{ borderColor: 'var(--border)' }}>
+          <div className="grid md:grid-cols-2 gap-8">
+
+            {/* Phases */}
+            {(skill as any).phases?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--txt-muted)' }}>
                   📍 Learning Phases
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {skill.learning_phases.map((phase, pi) => (
-                    <div key={pi} style={{
-                      display: 'flex', gap: 14, alignItems: 'flex-start',
-                      padding: '14px 16px', background: 'var(--gray-50)', borderRadius: 12, border: '1px solid var(--border)'
-                    }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                        {pi + 1}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{phase.title}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{phase.duration_hours}h</div>
-                      </div>
-                    </div>
+                </h4>
+                <div>
+                  {(skill as any).phases.map((p: any, i: number) => (
+                    <PhaseStep key={i} phase={p} isLast={i === (skill as any).phases.length - 1} />
                   ))}
                 </div>
               </div>
             )}
 
             {/* Resources */}
-            {skill.resources && skill.resources.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 10 }}>
-                  📚 Curated Resources ({skill.resources.length})
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {skill.resources.map((r, ri) => <ResourceCard key={ri} r={r} />)}
-                </div>
-              </div>
-            )}
+            <div>
+              {skill.resources.length > 0 && (
+                <>
+                  <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--txt-muted)' }}>
+                    🎯 Curated Resources ({skill.resources.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {skill.resources.map((r, i) => <ResourceCard key={i} r={r} />)}
+                  </div>
+                </>
+              )}
 
-            {/* Practice projects */}
-            {skill.projects && skill.projects.length > 0 && (
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 10 }}>
-                  🛠️ Practice Projects
+              {/* Prerequisites */}
+              {skill.prerequisites.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--txt-muted)' }}>Prerequisites</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {skill.prerequisites.map((p, i) => (
+                      <span key={i} className={`badge ${p.status === 'already_have' ? 'badge-success' : 'badge-high'}`}>
+                        {p.status === 'already_have' ? '✓' : '→'} {p.skill}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {skill.projects.map((proj, pi) => (
-                    <div key={pi} style={{ padding: '12px 16px', background: '#EDE9FE', border: '1px solid #DDD6FE', borderRadius: 12 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: '#5B21B6', marginBottom: 4 }}>{proj.title}</div>
-                      <div style={{ fontSize: 12, color: '#6D28D9' }}>{proj.description}</div>
-                      {proj.duration_hours && (
-                        <div style={{ fontSize: 11, color: '#7C3AED', marginTop: 6, fontWeight: 600 }}>~{proj.duration_hours}h</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────
-export default function LearningPlanPage() {
+/* ══════════════════════════════════════════════════
+   PAGE
+   ══════════════════════════════════════════════════ */
+export default function PlanPage() {
   const router = useRouter();
-  const { learningPlan, sessionId } = useAssessmentStore();
-  const [expanded, setExpanded] = useState<number | null>(0);
+  const { learningPlan, sessionId, results } = useAssessmentStore();
+  const [open, setOpen] = useState<number | null>(0);
 
   useEffect(() => { if (!sessionId) router.push('/'); }, [sessionId, router]);
 
-  const handleExport = () => {
-    if (!learningPlan) return;
-    const { summary, skills, success_criteria } = learningPlan;
-    const text = [
-      '# SkillAssess — Personalized Learning Path',
-      `Generated: ${new Date().toLocaleDateString()}`,
-      '',
-      `## Summary`,
-      `Total: ${summary.total_hours}h | ${summary.weeks_10hrs_per_week} weeks @ 10h/wk`,
-      `Completion: ${summary.estimated_completion}`,
-      '',
-      '## Priority Skills',
-      ...skills.map((s, i) => [
-        `### ${i+1}. ${s.skill} [${s.importance.toUpperCase()}]`,
-        `Hours: ${s.estimated_hours}h | Level: ${s.current_level.toFixed(0)} → ${s.target_level.toFixed(0)}/8`,
-        s.why_important,
-        '',
-        'Resources:',
-        ...s.resources.map(r => `  • ${r.title} — ${r.cost === 'free' ? 'Free' : r.cost} (${r.url})`),
-        '',
-      ].join('\n')),
-      '## Success Criteria',
-      ...success_criteria.map(c => `• ${c}`),
-    ].join('\n');
-
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'skillassess_learning_path.md'; a.click();
-    URL.revokeObjectURL(url);
-  };
-
   if (!learningPlan) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gray-50)' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div className="spinner spinner-blue" style={{ width: 40, height: 40, borderWidth: 3, margin: '0 auto 16px' }} />
-        <div style={{ color: 'var(--text-sub)', fontWeight: 500 }}>Building your learning path...</div>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-transparent border-t-purple-500 rounded-full anim-spin mx-auto mb-4" />
+        <p style={{ color: 'var(--txt-secondary)' }}>Building your roadmap…</p>
       </div>
     </div>
   );
 
   const { summary, skills, timeline, success_criteria } = learningPlan;
+  const narrative = (learningPlan as any).narrative ?? (results?.narrative ?? '');
+
+  const handleExport = () => {
+    const md = [
+      '# SkillAssess — Personalised Learning Roadmap',
+      '',
+      `**Total time:** ${summary.total_hours}h | **Est. completion:** ${summary.estimated_completion}`,
+      '',
+      '## Skills to Develop',
+      ...skills.map((s, i) => [
+        `### ${i+1}. ${s.skill} (${s.estimated_hours}h)`,
+        s.why_important, '',
+      ].join('\n')),
+      '## Success Criteria',
+      ...success_criteria.map(c => `- ${c}`),
+    ].join('\n');
+    const b = new Blob([md], { type: 'text/markdown' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+    a.download = 'learning_roadmap.md'; a.click();
+  };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--gray-50)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
 
-      {/* Navbar */}
-      <nav className="navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => router.push('/')} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Bricolage Grotesque, sans-serif', fontWeight: 700, fontSize: 16 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg,#2563EB,#7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 13, fontWeight: 800 }}>S</div>
+      {/* ── NAVBAR ─────────────────────────────────── */}
+      <nav className="navbar px-6 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <button onClick={() => router.push('/')} className="flex items-center gap-2 font-bold text-lg tracking-tight"
+                  style={{ color: 'var(--txt-primary)' }}>
+            <div className="w-7 h-7 rounded-lg gradient-blue flex items-center justify-center text-white font-black text-xs">S</div>
             SkillAssess
           </button>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard')}>← Dashboard</button>
-          <button className="btn btn-secondary btn-sm" onClick={handleExport}>↓ Export .md</button>
-          <button className="btn btn-primary btn-sm" onClick={() => { useAssessmentStore.getState().reset(); router.push('/'); }}>
-            🔄 New Assessment
-          </button>
+          <div className="flex gap-3">
+            <button onClick={() => router.push('/dashboard')} className="btn btn-ghost text-sm">← Results</button>
+            <button onClick={handleExport} className="btn btn-secondary text-sm">↓ Export .md</button>
+          </div>
         </div>
       </nav>
 
-      {/* Hero banner */}
-      <div style={{ background: 'linear-gradient(135deg, #1E3A8A 0%, #4C1D95 60%, #2563EB 100%)', color: 'white', padding: '48px 24px 40px' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 40, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.7, marginBottom: 10 }}>
-                Your Personalized
+      {/* ── HERO ───────────────────────────────────── */}
+      <div className="card-blue px-6 py-12">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div className="anim-fade-up">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold mb-4"
+                   style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}>
+                🗺️ Personalised Roadmap
               </div>
-              <h1 style={{ fontSize: 40, fontWeight: 800, marginBottom: 8, lineHeight: 1.1, fontFamily: 'Bricolage Grotesque, sans-serif' }}>
-                Learning Path
+              <h1 className="text-4xl md:text-5xl font-black text-white mb-3 leading-tight">
+                Your Learning<br />Roadmap
               </h1>
-              <p style={{ opacity: 0.8, fontSize: 15, maxWidth: 480, lineHeight: 1.6 }}>
-                Prioritized by your skill gaps and the role requirements. Each skill is ordered by impact and learning feasibility.
-              </p>
+              {narrative && (
+                <p className="text-blue-100 leading-relaxed text-base">{narrative}</p>
+              )}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, flexShrink: 0 }}>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-4 anim-fade-up stagger-2">
               {[
-                { v: `${summary.total_hours}h`, l: 'Total Learning', sub: 'curated estimate' },
-                { v: `${summary.weeks_10hrs_per_week}w`, l: '@ 10h / week', sub: 'to job-ready' },
-                { v: String(skills.length), l: 'Priority Skills', sub: 'ranked by impact' },
-              ].map(({ v, l, sub }) => (
-                <div key={l} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.1)', borderRadius: 14, padding: '18px 16px', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                  <div style={{ fontSize: 30, fontWeight: 800, fontFamily: 'Bricolage Grotesque, sans-serif', lineHeight: 1 }}>{v}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6, opacity: 0.9 }}>{l}</div>
-                  <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3 }}>{sub}</div>
+                { val: summary.total_hours + 'h', label: 'Total Hours' },
+                { val: summary.weeks_10hrs_per_week + ' wks', label: 'At 10h/week' },
+                { val: summary.weeks_5hrs_per_week  + ' wks', label: 'At 5h/week' },
+                { val: skills.length, label: 'Skills' },
+              ].map(s => (
+                <div key={s.label} className="rounded-xl text-center py-4 px-2"
+                     style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                  <div className="text-2xl font-black text-white">{s.val}</div>
+                  <div className="text-xs text-blue-200 mt-1">{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Timeline breadcrumb */}
-          <div style={{ marginTop: 32, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {skills.map((s, i) => (
-              <div key={s.skill} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{
-                  background: 'rgba(255,255,255,0.15)', borderRadius: 99, padding: '4px 12px',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)',
-                  backdropFilter: 'blur(8px)',
-                  boxShadow: expanded === i ? '0 0 0 2px rgba(255,255,255,0.5)' : 'none'
-                }} onClick={() => setExpanded(expanded === i ? null : i)}>
-                  {i + 1}. {s.skill}
+          {/* Adjacent skills callout */}
+          {(summary as any).adjacent_skills_count > 0 && (
+            <div className="mt-6 rounded-xl p-4 flex items-start gap-3"
+                 style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)' }}>
+              <span className="text-xl">⚡</span>
+              <div>
+                <div className="font-bold text-white text-sm">Zone of Proximal Development</div>
+                <div className="text-blue-100 text-sm">
+                  {(summary as any).adjacent_skills_count} of {skills.length} target skills
+                  are <strong>adjacent</strong> to what you already know — expect faster acquisition
+                  because your existing knowledge transfers directly.
                 </div>
-                {i < skills.length - 1 && <span style={{ opacity: 0.4, fontSize: 14 }}>→</span>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
+
+        {/* ── SKILL CARDS ─────────────────────────── */}
+        <div className="mb-10">
+          <h2 className="text-2xl font-black mb-2" style={{ color: 'var(--txt-primary)' }}>
+            Priority Skills
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--txt-secondary)' }}>
+            Ordered by ROI: job criticality × gap size ÷ acquisition difficulty
+          </p>
+          <div className="space-y-4">
+            {skills.map((s, i) => (
+              <div key={s.skill} className={`anim-fade-up stagger-${Math.min(i+1,5)}`}>
+                <SkillRow skill={s} idx={i+1} open={open===i} toggle={() => setOpen(open===i ? null : i)} />
               </div>
             ))}
           </div>
         </div>
-      </div>
 
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 24px' }}>
-        <div className="anim-fade-up">
-
-          {/* Skills list */}
-          <div style={{ marginBottom: 40 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 24, fontWeight: 800, fontFamily: 'Bricolage Grotesque, sans-serif' }}>
-                Your Skills Roadmap
-              </h2>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Click any skill to expand its full roadmap</span>
-            </div>
-
-            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Vertical connector line */}
-              <div style={{
-                position: 'absolute', left: 33, top: 50, bottom: 50,
-                width: 2, background: 'linear-gradient(180deg, #BFDBFE, #DDD6FE, #E2E8F0)',
-                zIndex: 0
-              }} />
-
-              {skills.map((skill, i) => (
-                <div key={skill.skill} style={{ position: 'relative', zIndex: 1 }}>
-                  <SkillPathCard
-                    skill={skill}
-                    index={i}
-                    isExpanded={expanded === i}
-                    onToggle={() => setExpanded(expanded === i ? null : i)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Week-by-week timeline */}
-          {Object.keys(timeline).length > 0 && (
-            <div style={{ marginBottom: 40 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 20, fontFamily: 'Bricolage Grotesque, sans-serif' }}>
-                📅 Week-by-Week Timeline
-              </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-                {Object.entries(timeline).map(([period, data], i) => {
-                  const gradient = PHASE_COLORS[i % PHASE_COLORS.length];
-                  return (
-                    <div key={period} className="card-sm" style={{ borderLeft: '4px solid', borderColor: 'transparent', backgroundImage: `linear-gradient(white, white), ${gradient}`, backgroundOrigin: 'border-box', backgroundClip: 'padding-box, border-box', borderRadius: 14 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Phase {i + 1}</div>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>{data.hours}h</div>
+        {/* ── WEEK-BY-WEEK TIMELINE ──────────────── */}
+        {Array.isArray(timeline) && timeline.length > 0 && (
+          <div className="mb-10">
+            <h2 className="text-2xl font-black mb-2" style={{ color: 'var(--txt-primary)' }}>
+              Week-by-Week Timeline
+            </h2>
+            <p className="text-sm mb-6" style={{ color: 'var(--txt-secondary)' }}>
+              Phase milestones give you concrete checkpoints so you always know you're progressing.
+            </p>
+            <div className="card" style={{ padding: '24px 28px' }}>
+              <div className="space-y-4">
+                {(timeline as any[]).map((t, i) => (
+                  <div key={i} className={`flex gap-4 ${i < (timeline as any[]).length - 1 ? 'timeline-line' : ''}`}>
+                    {/* Week circle */}
+                    <div className="shrink-0">
+                      <div className="w-8 h-8 rounded-full gradient-blue flex items-center justify-center text-white font-bold text-xs">
+                        {t.week_start}
                       </div>
-                      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{data.focus}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>{data.milestone}</div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Success criteria */}
-          {success_criteria.length > 0 && (
-            <div style={{ marginBottom: 40 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 16, fontFamily: 'Bricolage Grotesque, sans-serif' }}>
-                🏆 You'll Know You're Ready When...
-              </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
-                {success_criteria.map((c, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 16px', background: 'white', border: '1px solid var(--border)', borderRadius: 14 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#DCFCE7', color: '#16A34A', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {i + 1}
+                    <div className="flex-1 pb-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="font-semibold text-sm" style={{ color: 'var(--txt-primary)' }}>
+                            Wk {t.week_start}–{t.week_end}: <span className="gradient-text">{t.skill}</span>
+                            <span className="ml-1 text-xs font-normal" style={{ color: 'var(--txt-muted)' }}>
+                              Phase {t.phase} — {t.title}
+                            </span>
+                          </div>
+                          <p className="text-xs mt-1" style={{ color: 'var(--txt-muted)' }}>
+                            🛠️ {t.milestone}
+                          </p>
+                        </div>
+                        <span className="badge badge-blue shrink-0">{t.hours}h</span>
+                      </div>
                     </div>
-                    <p style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.6, margin: 0 }}>{c}</p>
                   </div>
                 ))}
               </div>
             </div>
-          )}
-
-          {/* Bottom CTA */}
-          <div style={{ padding: '32px', background: 'white', border: '1px solid var(--border)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-            <div>
-              <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, fontFamily: 'Bricolage Grotesque, sans-serif' }}>
-                Complete this plan and re-assess
-              </h3>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                Once you've built the skills, take a new assessment to verify your growth and update your roadmap.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-              <button className="btn btn-secondary" onClick={handleExport}>↓ Download Plan</button>
-              <button className="btn btn-gradient" onClick={() => { useAssessmentStore.getState().reset(); router.push('/'); }}>
-                🔄 Start New Assessment
-              </button>
-            </div>
           </div>
+        )}
+
+        {/* ── SUCCESS CRITERIA ───────────────────── */}
+        {success_criteria.length > 0 && (
+          <div className="card mb-8">
+            <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--txt-primary)' }}>🏆 How You'll Know You're Ready</h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--txt-muted)' }}>
+              These are your concrete re-application checkpoints.
+            </p>
+            <ul className="space-y-3">
+              {success_criteria.map((c, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-bold text-xs text-white gradient-blue mt-0.5">
+                    {i+1}
+                  </div>
+                  <span className="text-sm" style={{ color: 'var(--txt-secondary)' }}>{c}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* ── RESTART ────────────────────────────── */}
+        <div className="text-center py-8">
+          <p className="text-sm mb-4" style={{ color: 'var(--txt-muted)' }}>
+            Complete the roadmap and re-assess to measure real progress.
+          </p>
+          <button
+            onClick={() => { useAssessmentStore.getState().reset(); router.push('/'); }}
+            className="btn btn-secondary"
+          >
+            🔄 Start New Assessment
+          </button>
         </div>
       </div>
     </div>

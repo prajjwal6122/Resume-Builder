@@ -3,64 +3,82 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAssessmentStore } from '@/app/store/assessmentStore';
-import type { SkillScore } from '@/app/types';
+import type { SkillScore, GapType } from '@/app/types';
 
-const GAP_COLORS: Record<string, { bar: string; badge: string; text: string; bg: string; label: string }> = {
-  overestimated: { bar: '#EF4444', badge: 'badge-critical', text: '#DC2626', bg: '#FEF2F2', label: 'Overestimated' },
-  underestimated: { bar: '#10B981', badge: 'badge-success', text: '#16A34A', bg: '#ECFDF5', label: '✨ Hidden Strength' },
-  accurate:  { bar: '#3B82F6', badge: 'badge-medium', text: '#2563EB', bg: '#EFF6FF', label: 'Well Calibrated' },
-  missing:   { bar: '#F59E0B', badge: 'badge-high', text: '#D97706', bg: '#FFFBEB', label: 'Skill Gap' },
-  untested:  { bar: '#94A3B8', badge: 'badge-low', text: '#64748B', bg: '#F8FAFC', label: 'Not Tested' },
+/* ── Score ring ────────────────────────────────── */
+function ScoreRing({ score, max = 8, size = 64 }: { score: number; max?: number; size?: number }) {
+  const pct = Math.max(0, Math.min(score / max, 1));
+  const r = size / 2 - 5;
+  const circ = 2 * Math.PI * r;
+  const color =
+    pct >= 0.75 ? '#10B981' :
+    pct >= 0.5  ? '#3B82F6' :
+    pct >= 0.3  ? '#F59E0B' : '#EF4444';
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--bg-subtle)" strokeWidth="5" />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5"
+              strokeLinecap="round" strokeDasharray={circ}
+              strokeDashoffset={circ * (1 - pct)}
+              style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dashoffset 1s ease' }} />
+      <text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="central"
+            fontSize={size < 60 ? 11 : 13} fontWeight="800" fill={color}>
+        {score.toFixed(1)}
+      </text>
+    </svg>
+  );
+}
+
+/* ── Skill gap card ────────────────────────────── */
+const GAP_CONFIG: Record<GapType, { label: string; color: string; bg: string; border: string; icon: string }> = {
+  overestimated: { label: 'Overstated',      color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: '⚠️' },
+  underestimated:{ label: 'Hidden Strength', color: '#059669', bg: '#F0FDF4', border: '#6EE7B7', icon: '✨' },
+  accurate:      { label: 'Accurate',        color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE', icon: '✓' },
+  missing:       { label: 'Gap',             color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '📌' },
+  untested:      { label: 'Not Tested',      color: '#94A3B8', bg: 'var(--bg-subtle)', border: 'var(--border)', icon: '–' },
 };
 
-function SkillGapRow({ skill }: { skill: SkillScore }) {
-  const cfg = GAP_COLORS[skill.gap_type] || GAP_COLORS.accurate;
-  const claimed = skill.claimed_level || 0;
-  const assessed = skill.assessed_level ?? 0;
-  const maxVal = 8;
+function SkillCard({ s }: { s: SkillScore }) {
+  const cfg   = GAP_CONFIG[s.gap_type] || GAP_CONFIG.accurate;
+  const claim = s.claimed_level  ?? 0;
+  const asses = s.assessed_level ?? 0;
 
   return (
-    <div style={{
-      background: 'white', border: '1px solid var(--border)', borderRadius: 16,
-      padding: '18px 20px', transition: 'box-shadow 0.2s',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+    <div className="card" style={{ border: `1.5px solid ${cfg.border}`, background: cfg.bg }}>
+      <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{skill.skill}</div>
-          <span className={`badge ${cfg.badge}`}>{cfg.label}</span>
+          <h3 className="font-bold" style={{ color: 'var(--txt-primary)' }}>{s.skill}</h3>
+          <span className="badge text-xs mt-1" style={{ background: cfg.color + '18', color: cfg.color }}>
+            {cfg.icon} {cfg.label}
+          </span>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 24, fontWeight: 800, color: cfg.text, fontFamily: 'Bricolage Grotesque, sans-serif', lineHeight: 1 }}>
-            {assessed.toFixed(1)}
-            <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-muted)' }}>/8</span>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{skill.confidence_interval}</div>
-        </div>
+        <ScoreRing score={asses} size={52} />
       </div>
 
       {/* Dual bar */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 64 }}>Claimed</span>
-          <div className="score-track" style={{ flex: 1 }}>
-            <div className="score-fill" style={{ width: `${(claimed / maxVal) * 100}%`, background: '#CBD5E1' }} />
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <span className="text-xs w-20 shrink-0" style={{ color: 'var(--txt-muted)' }}>Resume</span>
+          <div className="flex-1 progress-track">
+            <div className="h-full rounded-full" style={{ width: `${(claim/8)*100}%`, background: '#CBD5E1', transition: 'width 0.8s ease' }} />
           </div>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', minWidth: 24, textAlign: 'right' }}>{claimed.toFixed(0)}</span>
+          <span className="text-xs w-6 text-right font-medium" style={{ color: 'var(--txt-muted)' }}>{claim}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 64 }}>Assessed</span>
-          <div className="score-track" style={{ flex: 1 }}>
-            <div className="score-fill" style={{ width: `${(assessed / maxVal) * 100}%`, background: cfg.bar }} />
+        <div className="flex items-center gap-3">
+          <span className="text-xs w-20 shrink-0" style={{ color: 'var(--txt-muted)' }}>Assessed</span>
+          <div className="flex-1 progress-track">
+            <div className="h-full rounded-full" style={{ width: `${(asses/8)*100}%`, background: cfg.color, transition: 'width 0.8s ease' }} />
           </div>
-          <span style={{ fontSize: 11, fontWeight: 700, color: cfg.text, minWidth: 24, textAlign: 'right' }}>{assessed.toFixed(1)}</span>
+          <span className="text-xs w-6 text-right font-bold" style={{ color: cfg.color }}>{asses.toFixed(1)}</span>
         </div>
       </div>
 
-      {skill.gap !== null && Math.abs(skill.gap) > 0.2 && (
-        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }}>
-          Gap: <span style={{ fontWeight: 600, color: cfg.text }}>{skill.gap > 0 ? '+' : ''}{skill.gap.toFixed(1)} pts</span>
-          {' '}· {skill.questions_asked} question{skill.questions_asked !== 1 ? 's' : ''} assessed
-        </div>
+      {s.gap !== null && Math.abs(s.gap) > 0.2 && (
+        <p className="text-xs mt-2" style={{ color: 'var(--txt-muted)' }}>
+          Gap: <strong style={{ color: cfg.color }}>{s.gap > 0 ? '+' : ''}{s.gap.toFixed(1)} pts</strong>
+          {' · '}{s.questions_asked} question{s.questions_asked !== 1 ? 's' : ''} assessed
+          {' · '}<span style={{ color: 'var(--txt-muted)' }}>{s.confidence_interval}</span>
+        </p>
       )}
     </div>
   );
@@ -68,142 +86,142 @@ function SkillGapRow({ skill }: { skill: SkillScore }) {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { results, questions, answers, sessionId } = useAssessmentStore();
+  const { results, sessionId, questions, answers } = useAssessmentStore();
 
   useEffect(() => { if (!sessionId) router.push('/'); }, [sessionId, router]);
 
   if (!results) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gray-50)' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div className="spinner spinner-blue" style={{ width: 40, height: 40, borderWidth: 3, margin: '0 auto 16px' }} />
-        <div style={{ color: 'var(--text-sub)', fontWeight: 500 }}>Analyzing your results...</div>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-transparent border-t-blue-500 rounded-full anim-spin mx-auto mb-4" />
+        <p style={{ color: 'var(--txt-secondary)' }}>Generating results…</p>
       </div>
     </div>
   );
 
   const { skill_scores, gaps_summary, narrative } = results;
-  const overestimated = skill_scores.filter(s => s.gap_type === 'overestimated');
-  const strengths = skill_scores.filter(s => s.gap_type === 'underestimated');
-  const missing = skill_scores.filter(s => s.gap_type === 'missing');
-  const avgScore = skill_scores
-    .filter(s => s.assessed_level !== null)
-    .reduce((sum, s) => sum + (s.assessed_level || 0), 0) /
-    (skill_scores.filter(s => s.assessed_level !== null).length || 1);
 
-  const sortedSkills = [...skill_scores].sort((a, b) => {
-    const order: Record<string, number> = { missing: 0, overestimated: 1, accurate: 2, underestimated: 3, untested: 4 };
-    return (order[a.gap_type] ?? 5) - (order[b.gap_type] ?? 5);
-  });
+  const tested  = skill_scores.filter(s => s.assessed_level !== null);
+  const avgScore = tested.length
+    ? tested.reduce((a, s) => a + (s.assessed_level ?? 0), 0) / tested.length
+    : 0;
+  const overest = skill_scores.filter(s => s.gap_type === 'overestimated');
+  const strengths= skill_scores.filter(s => s.gap_type === 'underestimated');
+  const missing = skill_scores.filter(s => s.gap_type === 'missing');
+
+  const sortOrder: Record<GapType, number> = {
+    missing:0, overestimated:1, accurate:2, underestimated:3, untested:4
+  };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--gray-50)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
 
-      {/* Navbar */}
-      <nav className="navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => router.push('/')} style={{
-            display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none',
-            cursor: 'pointer', fontFamily: 'Bricolage Grotesque, sans-serif', fontWeight: 700, fontSize: 16
-          }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg,#2563EB,#7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 13, fontWeight: 800 }}>S</div>
+      {/* ── NAVBAR ─────────────────────────────────── */}
+      <nav className="navbar px-6 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <button onClick={() => router.push('/')} className="flex items-center gap-2 font-bold text-lg tracking-tight"
+                  style={{ color: 'var(--txt-primary)' }}>
+            <div className="w-7 h-7 rounded-lg gradient-blue flex items-center justify-center text-white font-black text-xs">S</div>
             SkillAssess
           </button>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => router.push('/assess')}>← Reassess</button>
-          <button className="btn btn-primary btn-sm" onClick={() => router.push('/plan')}>
-            View Learning Path →
-          </button>
+          <div className="flex gap-3">
+            <button onClick={() => router.push('/assess')} className="btn btn-ghost text-sm">← Retake</button>
+            <button onClick={() => router.push('/plan')}   className="btn btn-primary text-sm">
+              View Learning Path →
+            </button>
+          </div>
         </div>
       </nav>
 
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 24px' }}>
-        <div className="anim-fade-up">
+      <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
 
-          {/* Header */}
-          <div style={{ marginBottom: 32 }}>
-            <h1 style={{ fontSize: 36, fontWeight: 800, marginBottom: 6 }}>
-              Assessment <span className="text-gradient">Results</span>
-            </h1>
-            <p style={{ color: 'var(--text-sub)', fontSize: 15 }}>
-              {questions.length} questions answered · {skill_scores.length} skills analyzed
-            </p>
-          </div>
+        {/* ── HEADER ─────────────────────────────────── */}
+        <div className="mb-8 anim-fade-up">
+          <p className="text-sm font-semibold mb-2" style={{ color: 'var(--blue-600)' }}>
+            {questions.length} questions · {answers.length} answered
+          </p>
+          <h1 className="text-4xl font-black mb-2" style={{ color: 'var(--txt-primary)' }}>
+            Assessment <span className="gradient-text">Results</span>
+          </h1>
+        </div>
 
-          {/* AI Narrative */}
-          {narrative && (
-            <div style={{
-              background: 'linear-gradient(135deg, #EFF6FF, #EDE9FE)',
-              border: '1px solid #BFDBFE', borderRadius: 16, padding: '20px 24px', marginBottom: 28,
-              display: 'flex', gap: 14, alignItems: 'flex-start'
-            }}>
-              <div style={{ fontSize: 28, flexShrink: 0 }}>🧠</div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6, color: '#1D4ED8' }}>AI Summary</div>
-                <p style={{ color: '#374151', lineHeight: 1.7, fontSize: 14 }}>{narrative}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Stats row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
+        {/* ── SUMMARY BANNER ─────────────────────────── */}
+        <div className="card card-blue mb-8 anim-fade-up stagger-1">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { value: avgScore.toFixed(1), label: 'Avg Score /8', color: '#2563EB', icon: '📊' },
-              { value: String(strengths.length), label: 'Hidden Strengths', color: '#16A34A', icon: '✨' },
-              { value: String(overestimated.length), label: 'Overestimated', color: '#DC2626', icon: '⚠️' },
-              { value: String(missing.length), label: 'Skill Gaps', color: '#D97706', icon: '📍' },
-            ].map(({ value, label, color, icon }) => (
-              <div key={label} className="stat-card">
-                <div style={{ fontSize: 20, marginBottom: 6 }}>{icon}</div>
-                <div className="stat-value" style={{ color, marginBottom: 4 }}>{value}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{label}</div>
+              { val: avgScore.toFixed(1), sub: 'Avg Score /8' },
+              { val: strengths.length,    sub: 'Hidden Strengths' },
+              { val: overest.length,      sub: 'Overstated Skills' },
+              { val: missing.length,      sub: 'Skill Gaps' },
+            ].map((s, i) => (
+              <div key={i}>
+                <div className="text-3xl font-black text-white">{s.val}</div>
+                <div className="text-xs text-blue-100 mt-1">{s.sub}</div>
               </div>
             ))}
           </div>
+        </div>
 
-          {/* Alerts */}
-          {overestimated.length > 0 && (
-            <div style={{ marginBottom: 16, padding: '16px 20px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 14 }}>
-              <div style={{ fontWeight: 700, color: '#DC2626', marginBottom: 4, fontSize: 14 }}>⚠️ Overestimation Detected</div>
-              <p style={{ fontSize: 13, color: '#7F1D1D', lineHeight: 1.6 }}>
-                Your resume overstates proficiency in: <strong>{overestimated.map(s => s.skill).join(', ')}</strong>. This is normal — your learning plan will target these gaps specifically.
-              </p>
+        {/* ── NARRATIVE ──────────────────────────────── */}
+        {narrative && (
+          <div className="card mb-6 anim-fade-up stagger-2" style={{ borderColor: 'var(--blue-200)', background: 'var(--blue-50)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">🧠</span>
+              <span className="font-bold" style={{ color: 'var(--blue-700)' }}>AI Summary</span>
             </div>
-          )}
-          {strengths.length > 0 && (
-            <div style={{ marginBottom: 24, padding: '16px 20px', background: '#ECFDF5', border: '1px solid #BBF7D0', borderRadius: 14 }}>
-              <div style={{ fontWeight: 700, color: '#16A34A', marginBottom: 4, fontSize: 14 }}>✨ Hidden Strengths Found!</div>
-              <p style={{ fontSize: 13, color: '#14532D', lineHeight: 1.6 }}>
-                You performed better than your resume suggests in: <strong>{strengths.map(s => s.skill).join(', ')}</strong>. Highlight these on your resume!
-              </p>
-            </div>
-          )}
-
-          {/* Skill breakdown */}
-          <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 16 }}>Skill Breakdown</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-              {sortedSkills.map(skill => <SkillGapRow key={skill.skill} skill={skill} />)}
-            </div>
+            <p className="leading-relaxed" style={{ color: 'var(--txt-secondary)' }}>{narrative}</p>
           </div>
+        )}
 
-          {/* CTA to learning path */}
-          <div style={{
-            background: 'linear-gradient(135deg, #2563EB, #7C3AED)',
-            borderRadius: 20, padding: '32px 36px', color: 'white', textAlign: 'center'
-          }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>🗺️</div>
-            <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 10 }}>Your Learning Path is Ready</h2>
-            <p style={{ opacity: 0.85, fontSize: 15, marginBottom: 24, maxWidth: 480, margin: '0 auto 24px' }}>
-              We've built a personalized roadmap prioritized by the role requirements and your real skill gaps — with curated resources and honest time estimates.
+        {/* ── ALERTS ─────────────────────────────────── */}
+        {overest.length > 0 && (
+          <div className="rounded-xl p-4 mb-4 anim-slide-r"
+               style={{ background: 'var(--red-100)', border: '1px solid #FECACA' }}>
+            <h3 className="font-bold mb-1" style={{ color: '#B91C1C' }}>⚠️ Overstated Proficiency</h3>
+            <p className="text-sm" style={{ color: '#7F1D1D' }}>
+              Your resume overstates: <strong>{overest.map(s=>s.skill).join(', ')}</strong>.
+              This is common — your learning plan addresses it directly.
             </p>
-            <button
-              onClick={() => router.push('/plan')}
-              style={{ background: 'white', color: '#2563EB', fontWeight: 700, fontSize: 15, padding: '13px 32px', borderRadius: 12, border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}
-            >
-              View My Personalized Learning Path →
-            </button>
           </div>
+        )}
+        {strengths.length > 0 && (
+          <div className="rounded-xl p-4 mb-6"
+               style={{ background: 'var(--emerald-100)', border: '1px solid #6EE7B7' }}>
+            <h3 className="font-bold mb-1" style={{ color: '#065F46' }}>✨ Hidden Strengths Found</h3>
+            <p className="text-sm" style={{ color: '#064E3B' }}>
+              You outperformed your resume in: <strong>{strengths.map(s=>s.skill).join(', ')}</strong>.
+              Update your resume to highlight these!
+            </p>
+          </div>
+        )}
+
+        {/* ── SKILL GRID ─────────────────────────────── */}
+        <h2 className="text-xl font-bold mb-4 anim-fade-up" style={{ color: 'var(--txt-primary)' }}>
+          Skill Breakdown
+        </h2>
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          {[...skill_scores].sort((a,b) => (sortOrder[a.gap_type]??5)-(sortOrder[b.gap_type]??5))
+            .map((s, i) => (
+              <div key={s.skill} className={`anim-fade-up stagger-${Math.min(i+1,5)}`}>
+                <SkillCard s={s} />
+              </div>
+            ))}
+        </div>
+
+        {/* ── CTA ────────────────────────────────────── */}
+        <div className="card gradient-bg-soft text-center py-8 anim-fade-up"
+             style={{ border: '1.5px solid var(--blue-200)' }}>
+          <h2 className="text-2xl font-black mb-2" style={{ color: 'var(--txt-primary)' }}>
+            Ready to close the gaps?
+          </h2>
+          <p className="mb-6 text-base" style={{ color: 'var(--txt-secondary)' }}>
+            Your personalised learning roadmap is ready — with curated resources,
+            phase-by-phase milestones, and realistic time estimates.
+          </p>
+          <button onClick={() => router.push('/plan')} className="btn btn-primary"
+                  style={{ fontSize: 15, padding: '13px 32px' }}>
+            🗺️ View My Learning Roadmap →
+          </button>
         </div>
       </div>
     </div>

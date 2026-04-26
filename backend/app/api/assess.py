@@ -271,7 +271,8 @@ async def complete_assessment(session_id: str):
         logger.info(f"Session {session_id}: generating learning plan...")
         learning_plan = generate_learning_plan_from_gaps(
             gap_analysis,
-            session.jd_skills
+            session.jd_skills,
+            resume_skills=session.resume_skills,
         )
 
         # Build results dict

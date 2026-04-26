@@ -5,116 +5,117 @@ import { useRouter } from 'next/navigation';
 import { useAssessmentStore } from '@/app/store/assessmentStore';
 import type { EvaluationResult } from '@/app/types';
 
-const DIFF_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  beginner:     { bg: '#DCFCE7', color: '#16A34A', label: 'Beginner' },
-  intermediate: { bg: '#FEF3C7', color: '#D97706', label: 'Intermediate' },
-  advanced:     { bg: '#FEE2E2', color: '#DC2626', label: 'Advanced' },
-};
-
-function ScoreMeter({ score, max, label }: { score: number; max: number; label: string }) {
-  const pct = Math.round((score / max) * 100);
-  const fillClass = pct >= 80 ? 'score-fill-great' : pct >= 55 ? 'score-fill-good' : pct >= 35 ? 'score-fill-avg' : 'score-fill-poor';
+/* ── Score ring helper ─────────────────────────── */
+function ScoreRing({ score, max = 8 }: { score: number; max?: number }) {
+  const pct = score / max;
+  const r = 22; const circ = 2 * Math.PI * r;
+  const color = pct >= 0.75 ? '#10B981' : pct >= 0.5 ? '#3B82F6' : pct >= 0.3 ? '#F59E0B' : '#EF4444';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <span style={{ fontSize: 12, color: 'var(--text-sub)', minWidth: 160, flexShrink: 0 }}>{label}</span>
-      <div className="score-track" style={{ flex: 1 }}>
-        <div className={`score-fill ${fillClass}`} style={{ width: `${pct}%` }} />
+    <svg width="56" height="56" viewBox="0 0 56 56">
+      <circle cx="28" cy="28" r={r} fill="none" stroke="var(--bg-subtle)" strokeWidth="4" />
+      <circle cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="4"
+              strokeLinecap="round" strokeDasharray={circ}
+              strokeDashoffset={circ * (1 - pct)}
+              style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dashoffset 0.8s ease' }} />
+      <text x="28" y="28" textAnchor="middle" dominantBaseline="central"
+            fontSize="13" fontWeight="700" fill={color}>{score.toFixed(1)}</text>
+    </svg>
+  );
+}
+
+/* ── Dimension bar ─────────────────────────────── */
+function DimBar({ label, score, max }: { label: string; score: number; max: number }) {
+  const pct = (score / max) * 100;
+  const color = pct === 100 ? 'var(--emerald-500)' : pct >= 50 ? 'var(--blue-500)' : 'var(--amber-500)';
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs w-44 shrink-0" style={{ color: 'var(--txt-secondary)' }}>{label}</span>
+      <div className="flex-1 progress-track">
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
       </div>
-      <span style={{ fontSize: 12, fontWeight: 700, minWidth: 36, textAlign: 'right', color: 'var(--text)' }}>
+      <span className="text-xs font-bold w-8 text-right" style={{ color: 'var(--txt-primary)' }}>
         {score}/{max}
       </span>
     </div>
   );
 }
 
-function EvalPanel({ evaluation }: { evaluation: EvaluationResult }) {
-  const total = evaluation.total_score;
-  const pct = Math.round((total / 8) * 100);
-  const scoreColor = pct >= 75 ? '#16A34A' : pct >= 50 ? '#2563EB' : pct >= 30 ? '#D97706' : '#DC2626';
+/* ── Evaluation panel ──────────────────────────── */
+function EvalPanel({ ev }: { ev: EvaluationResult }) {
+  const scoreColor =
+    ev.total_score >= 6 ? '#10B981' :
+    ev.total_score >= 4 ? '#3B82F6' :
+    ev.total_score >= 2 ? '#F59E0B' : '#EF4444';
+
+  const label =
+    ev.total_score >= 6.5 ? 'Excellent' :
+    ev.total_score >= 4.5 ? 'Good' :
+    ev.total_score >= 3   ? 'Developing' : 'Needs Work';
 
   return (
-    <div className="anim-fade-up" style={{
-      background: 'white',
-      border: '1px solid var(--border)',
-      borderRadius: 20,
-      overflow: 'hidden',
-      boxShadow: 'var(--shadow-lg)',
-      marginTop: 16,
-    }}>
-      {/* Top bar */}
-      <div style={{
-        background: 'linear-gradient(135deg, #EFF6FF, #EDE9FE)',
-        padding: '20px 24px',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, boxShadow: 'var(--shadow-sm)' }}>🤖</div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>AI Evaluation</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>5-dimension assessment</div>
-          </div>
+    <div className="card anim-scale-in mt-4" style={{ borderColor: 'var(--blue-200)' }}>
+      <div className="flex items-start gap-4 mb-4">
+        <ScoreRing score={ev.total_score} />
+        <div>
+          <div className="font-bold text-sm" style={{ color: 'var(--txt-primary)' }}>AI Evaluation</div>
+          <div className="font-black text-lg" style={{ color: scoreColor }}>{label}</div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 32, fontWeight: 800, color: scoreColor, lineHeight: 1, fontFamily: 'Bricolage Grotesque, sans-serif' }}>
-            {total.toFixed(1)}<span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>/8</span>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-            {pct >= 75 ? 'Strong' : pct >= 50 ? 'Good' : pct >= 30 ? 'Developing' : 'Needs Work'}
-          </div>
+        <div className="ml-auto text-right text-sm" style={{ color: 'var(--txt-muted)' }}>
+          {ev.total_score.toFixed(1)} / 8.0
         </div>
       </div>
 
-      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Reasoning */}
-        <div style={{ fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.7, padding: '14px 16px', background: 'var(--gray-50)', borderRadius: 12 }}>
-          {evaluation.reasoning}
-        </div>
+      {/* Reasoning */}
+      <div className="rounded-xl p-4 mb-4 text-sm leading-relaxed" style={{ background: 'var(--bg-subtle)', color: 'var(--txt-secondary)' }}>
+        {ev.reasoning}
+      </div>
 
-        {/* Score breakdown */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 12 }}>Score Breakdown</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <ScoreMeter label="✓ Correctness" score={evaluation.score_breakdown.correctness} max={2} />
-            <ScoreMeter label="⬇ Depth of Understanding" score={evaluation.score_breakdown.depth} max={2} />
-            <ScoreMeter label="💡 Practical Examples" score={evaluation.score_breakdown.examples} max={2} />
-            <ScoreMeter label="📝 Clarity" score={evaluation.score_breakdown.clarity} max={1} />
-            <ScoreMeter label="🎯 Confidence Calibration" score={evaluation.score_breakdown.confidence} max={1} />
+      {/* Score dimensions */}
+      <div className="space-y-2.5 mb-4">
+        <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--txt-muted)' }}>Breakdown</p>
+        <DimBar label="Correctness"            score={ev.score_breakdown.correctness} max={2} />
+        <DimBar label="Depth of Understanding" score={ev.score_breakdown.depth}       max={2} />
+        <DimBar label="Practical Examples"     score={ev.score_breakdown.examples}    max={2} />
+        <DimBar label="Clarity"                score={ev.score_breakdown.clarity}     max={1} />
+        <DimBar label="Confidence Calibration" score={ev.score_breakdown.confidence}  max={1} />
+      </div>
+
+      {/* Strengths / flags in a 2-col grid */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        {ev.strengths.length > 0 && (
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#059669' }}>✅ Strengths</p>
+            <ul className="space-y-1">
+              {ev.strengths.map((s,i) => (
+                <li key={i} className="text-xs flex gap-2" style={{ color: 'var(--txt-secondary)' }}>
+                  <span style={{ color: '#059669' }}>•</span>{s}
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
-
-        {/* Strengths + Flags row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {evaluation.strengths.length > 0 && (
-            <div style={{ background: '#ECFDF5', border: '1px solid #BBF7D0', borderRadius: 12, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#16A34A', marginBottom: 8 }}>✅ Strengths</div>
-              {evaluation.strengths.slice(0, 3).map((s, i) => (
-                <div key={i} style={{ fontSize: 12, color: '#15803D', marginBottom: 4, paddingLeft: 12, position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 0 }}>•</span> {s}
-                </div>
+        )}
+        {ev.red_flags.length > 0 && (
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#DC2626' }}>⚠️ Red flags</p>
+            <ul className="space-y-1">
+              {ev.red_flags.map((f,i) => (
+                <li key={i} className="text-xs flex gap-2" style={{ color: 'var(--txt-secondary)' }}>
+                  <span style={{ color: '#DC2626' }}>•</span>{f}
+                </li>
               ))}
-            </div>
-          )}
-          {evaluation.red_flags.length > 0 && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#DC2626', marginBottom: 8 }}>⚠️ Red Flags</div>
-              {evaluation.red_flags.slice(0, 3).map((f, i) => (
-                <div key={i} style={{ fontSize: 12, color: '#B91C1C', marginBottom: 4, paddingLeft: 12, position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 0 }}>•</span> {f}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Follow-up */}
-        {evaluation.follow_up_needed && evaluation.follow_up_question && (
-          <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: '14px 16px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#2563EB', marginBottom: 6 }}>💬 Follow-up</div>
-            <div style={{ fontSize: 13, color: '#1D4ED8' }}>{evaluation.follow_up_question}</div>
+            </ul>
           </div>
         )}
       </div>
+
+      {/* Follow-up */}
+      {ev.follow_up_needed && ev.follow_up_question && (
+        <div className="mt-4 rounded-xl p-3 text-sm"
+             style={{ background: 'var(--blue-50)', border: '1px solid var(--blue-200)' }}>
+          <span className="font-semibold" style={{ color: 'var(--blue-600)' }}>💬 Follow-up: </span>
+          <span style={{ color: 'var(--txt-secondary)' }}>{ev.follow_up_question}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -122,26 +123,27 @@ function EvalPanel({ evaluation }: { evaluation: EvaluationResult }) {
 export default function AssessPage() {
   const router = useRouter();
   const {
-    questions, answers, currentQuestionIndex, sessionId, isLoading, errorMessage,
-    getCurrentQuestion, submitAnswer, nextQuestion, completeAssessment, setError,
+    questions, answers, currentQuestionIndex, status,
+    isLoading, sessionId, errorMessage, isDemo,
+    getCurrentQuestion, submitAnswer, nextQuestion,
+    completeAssessment, setError,
   } = useAssessmentStore();
 
-  const [answerText, setAnswerText] = useState('');
-  const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [completing, setCompleting] = useState(false);
+  const [text, setText]               = useState('');
+  const [evalResult, setEvalResult]   = useState<EvaluationResult | null>(null);
+  const [submitted, setSubmitted]     = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const currentQ = getCurrentQuestion();
 
-  useEffect(() => { if (!sessionId) router.push('/'); }, [sessionId, router]);
-  useEffect(() => { if (!submitted) setTimeout(() => textareaRef.current?.focus(), 100); }, [currentQuestionIndex, submitted]);
+  useEffect(() => { if (!sessionId && status === 'idle') router.push('/'); }, [sessionId, status, router]);
+  useEffect(() => { if (!submitted) textareaRef.current?.focus(); }, [currentQuestionIndex, submitted]);
 
   const handleSubmit = async () => {
-    if (!answerText.trim() || isLoading || submitted) return;
+    if (!text.trim() || isLoading || submitted) return;
     setSubmitted(true);
     try {
-      const ev = await submitAnswer(answerText);
-      if (ev) setEvaluation(ev);
+      const ev = await submitAnswer(text);
+      if (ev) setEvalResult(ev);
     } catch (e) {
       setSubmitted(false);
       setError((e as Error).message);
@@ -149,96 +151,98 @@ export default function AssessPage() {
   };
 
   const handleNext = () => {
-    setAnswerText(''); setEvaluation(null); setSubmitted(false);
+    setText(''); setEvalResult(null); setSubmitted(false);
     nextQuestion();
+    setTimeout(() => textareaRef.current?.focus(), 80);
   };
 
   const handleComplete = async () => {
-    setCompleting(true);
-    try {
-      await completeAssessment();
-      router.push('/dashboard');
-    } catch (e) {
-      setError((e as Error).message);
-      setCompleting(false);
-    }
+    try { await completeAssessment(); router.push('/dashboard'); }
+    catch (e) { setError((e as Error).message); }
   };
 
-  const isLastQ = currentQuestionIndex >= questions.length - 1;
-  const progress = questions.length > 0 ? ((answers.length) / questions.length) * 100 : 0;
-  const diffCfg = currentQ ? DIFF_STYLE[currentQ.difficulty] || DIFF_STYLE.intermediate : null;
+  const progress = questions.length ? (answers.length / questions.length) * 100 : 0;
+  const isLast   = currentQuestionIndex >= questions.length - 1;
+  const DIFF_COLORS: Record<string, string> = {
+    beginner:'#059669', intermediate:'#D97706', advanced:'#DC2626'
+  };
 
   if (!currentQ) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gray-50)' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div className="spinner spinner-blue" style={{ margin: '0 auto 16px' }} />
-        <div style={{ color: 'var(--text-sub)' }}>Loading assessment...</div>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-transparent border-t-blue-500 rounded-full anim-spin mx-auto mb-4" />
+        <p style={{ color: 'var(--txt-secondary)' }}>Loading assessment…</p>
       </div>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--gray-50)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
 
-      {/* Navbar */}
-      <nav className="navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => router.push('/')} className="btn btn-ghost btn-sm">← Back</button>
-          <span style={{ fontFamily: 'Bricolage Grotesque, sans-serif', fontWeight: 700, fontSize: 16 }}>SkillAssess</span>
-        </div>
+      {/* ── NAVBAR ─────────────────────────────────── */}
+      <nav className="navbar px-6 py-4">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <button onClick={() => router.push('/')} className="flex items-center gap-2 font-bold text-lg tracking-tight"
+                  style={{ color: 'var(--txt-primary)' }}>
+            <div className="w-7 h-7 rounded-lg gradient-blue flex items-center justify-center text-white font-black text-xs">S</div>
+            SkillAssess
+          </button>
 
-        {/* Progress bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, maxWidth: 400, margin: '0 24px' }}>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-            Q{Math.min(currentQuestionIndex + 1, questions.length)} / {questions.length}
-          </span>
-          <div className="progress-track" style={{ flex: 1 }}>
-            <div className="progress-fill" style={{ width: `${progress}%` }} />
+          {/* Progress bar */}
+          <div className="flex items-center gap-3 flex-1 max-w-xs mx-8">
+            <div className="flex-1 progress-track">
+              <div className="progress-fill-blue" style={{ width: `${progress}%` }} />
+            </div>
+            <span className="text-sm font-semibold whitespace-nowrap" style={{ color: 'var(--blue-600)' }}>
+              {answers.length}/{questions.length}
+            </span>
           </div>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--blue-600)' }}>{Math.round(progress)}%</span>
-        </div>
 
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          ~{Math.max(0, questions.length - answers.length) * 2} min remaining
+          {isDemo && (
+            <span className="badge badge-amber text-xs">Demo mode</span>
+          )}
         </div>
       </nav>
 
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 24px' }}>
+      {/* ── MAIN ───────────────────────────────────── */}
+      <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-8">
 
         {/* Error */}
         {errorMessage && (
-          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, fontSize: 13, color: '#DC2626', display: 'flex', justifyContent: 'space-between' }}>
-            {errorMessage}
-            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', fontWeight: 700 }}>✕</button>
+          <div className="mb-4 p-4 rounded-xl text-sm flex justify-between"
+               style={{ background: 'var(--red-100)', color: '#B91C1C', border: '1px solid #FECACA' }}>
+            <span>❌ {errorMessage}</span>
+            <button onClick={() => setError(null)} className="opacity-60 hover:opacity-100 ml-4">✕</button>
           </div>
         )}
 
         {/* Question card */}
-        <div className="question-card anim-fade-up">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
-            {diffCfg && (
-              <span style={{ padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: diffCfg.bg, color: diffCfg.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {diffCfg.label}
-              </span>
-            )}
-            <span style={{ padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}>
-              🔧 {currentQ.skill}
+        <div className="card anim-fade-up mb-4" style={{ borderColor: 'var(--border-med)' }}>
+          {/* Meta row */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span className="badge badge-blue">🔧 {currentQ.skill}</span>
+            <span className="badge" style={{
+              background: DIFF_COLORS[currentQ.difficulty] + '18',
+              color: DIFF_COLORS[currentQ.difficulty]
+            }}>
+              {currentQ.difficulty}
             </span>
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
-              Question {currentQ.order || currentQuestionIndex + 1}
+            <span className="ml-auto text-xs" style={{ color: 'var(--txt-muted)' }}>
+              Q{(currentQ.order || currentQuestionIndex + 1)} of {questions.length}
             </span>
           </div>
 
-          <h2 style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.4, color: 'var(--text)', marginBottom: 16 }}>
+          <h2 className="text-xl font-bold leading-relaxed mb-4" style={{ color: 'var(--txt-primary)' }}>
             {currentQ.text}
           </h2>
 
-          {!submitted && currentQ.expected_depth && (
-            <details style={{ marginTop: 8 }}>
-              <summary style={{ fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
-                💡 What makes a strong answer?
+          {currentQ.expected_depth && !submitted && (
+            <details className="text-xs" style={{ color: 'var(--txt-muted)' }}>
+              <summary className="cursor-pointer hover:text-blue-600 select-none">
+                💡 What does a strong answer include?
               </summary>
-              <p style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 8, paddingLeft: 16, borderLeft: '2px solid var(--border)', lineHeight: 1.6 }}>
+              <p className="mt-2 pl-3 border-l-2 leading-relaxed"
+                 style={{ borderColor: 'var(--border)', color: 'var(--txt-secondary)' }}>
                 {currentQ.expected_depth}
               </p>
             </details>
@@ -247,120 +251,99 @@ export default function AssessPage() {
 
         {/* Answer input */}
         {!submitted && (
-          <div className="card anim-fade-up anim-delay-100" style={{ marginTop: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-sub)', display: 'block', marginBottom: 10 }}>
-              Your Answer
-            </label>
+          <div className="card anim-fade-up stagger-1">
+            <label className="block text-xs font-bold uppercase tracking-wider mb-3"
+                   style={{ color: 'var(--txt-muted)' }}>Your Answer</label>
             <textarea
               ref={textareaRef}
-              value={answerText}
-              onChange={(e) => setAnswerText(e.target.value)}
+              value={text}
+              onChange={e => setText(e.target.value)}
               onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
               }}
+              placeholder="Be specific — what tools/approach would you choose and why?&#10;Real examples from your experience carry more weight than theory.&#10;&#10;(Ctrl + Enter to submit)"
+              className="input-field"
+              style={{ height: 180, resize: 'none' }}
               disabled={isLoading}
-              className="input"
-              placeholder={`Write your answer here — be specific and include real examples from your experience.\n\nAim for 100+ words. Ctrl+Enter to submit.`}
-              style={{ height: 180, fontSize: 14, lineHeight: 1.65 }}
             />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                {answerText.length} chars
-                {answerText.length > 0 && answerText.length < 60 && (
-                  <span style={{ color: '#D97706', marginLeft: 8 }}>• Add more detail for a better score</span>
+            <div className="flex items-center justify-between mt-3">
+              <div className="text-xs" style={{ color: 'var(--txt-muted)' }}>
+                {text.length} chars
+                {text.length > 0 && text.length < 60 && (
+                  <span style={{ color: 'var(--amber-500)', marginLeft: 8 }}>• Add more detail</span>
                 )}
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ctrl+Enter</span>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSubmit}
-                  disabled={answerText.trim().length < 15 || isLoading}
-                >
-                  {isLoading
-                    ? <><div className="spinner" /> Evaluating...</>
-                    : 'Submit Answer →'}
-                </button>
               </div>
+              <button onClick={handleSubmit}
+                      disabled={text.trim().length < 15 || isLoading}
+                      className="btn btn-primary">
+                {isLoading
+                  ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full anim-spin" /> Evaluating…</>
+                  : <>Submit Answer →</>}
+              </button>
             </div>
           </div>
         )}
 
-        {/* Submitted answer display */}
-        {submitted && (
-          <div style={{ marginTop: 16, padding: '14px 18px', background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 8 }}>Your Answer</div>
-            <div style={{ fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{answerText}</div>
-          </div>
-        )}
-
-        {/* Loading evaluation */}
-        {submitted && !evaluation && isLoading && (
-          <div className="card anim-fade-in" style={{ marginTop: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <div className="spinner spinner-blue" />
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>AI is evaluating your answer...</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Scoring 5 dimensions</div>
-              </div>
+        {/* Loading skeleton */}
+        {submitted && !evalResult && isLoading && (
+          <div className="card mt-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-5 h-5 border-2 border-transparent border-t-blue-500 rounded-full anim-spin" />
+              <span className="text-sm" style={{ color: 'var(--txt-secondary)' }}>Analysing your answer…</span>
             </div>
-            {['Correctness', 'Depth of Understanding', 'Practical Examples', 'Clarity', 'Confidence'].map(d => (
-              <div key={d} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 160 }}>{d}</span>
-                <div className="skeleton" style={{ height: 8, flex: 1, borderRadius: 99 }} />
-              </div>
-            ))}
+            <div className="space-y-3">
+              {['Correctness','Depth','Examples','Clarity','Confidence'].map(d => (
+                <div key={d} className="flex gap-3 items-center">
+                  <div className="skeleton w-44 h-3" />
+                  <div className="flex-1 skeleton h-3" />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Evaluation result */}
-        {evaluation && <EvalPanel evaluation={evaluation} />}
+        {evalResult && <EvalPanel ev={evalResult} />}
 
-        {/* Navigation */}
-        {submitted && evaluation && (
-          <div style={{ marginTop: 20, display: 'flex', gap: 12 }} className="anim-fade-up">
-            {!isLastQ ? (
-              <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={handleNext}>
+        {/* Navigation after eval */}
+        {submitted && evalResult && (
+          <div className="flex gap-3 mt-5 anim-fade-up">
+            {!isLast ? (
+              <button onClick={handleNext} className="btn btn-primary flex-1" style={{ padding: '14px' }}>
                 Next Question →
               </button>
             ) : (
-              <button
-                className="btn btn-gradient btn-lg"
-                style={{ flex: 1, fontSize: 15 }}
-                onClick={handleComplete}
-                disabled={completing}
-              >
-                {completing
-                  ? <><div className="spinner" /> Generating your learning path...</>
-                  : '🗺️ Complete & Get My Learning Path →'}
+              <button onClick={handleComplete} disabled={isLoading} className="btn btn-primary flex-1"
+                      style={{ padding: '14px', fontSize: 15 }}>
+                {isLoading
+                  ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full anim-spin" /> Generating Results…</>
+                  : '🏁 Complete & See Results'}
               </button>
             )}
           </div>
         )}
 
-        {/* Previous answers */}
+        {/* Previous answers accordion */}
         {answers.length > 0 && (
-          <div style={{ marginTop: 40 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: 12 }}>
-              Completed ({answers.length} / {questions.length})
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="mt-8">
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--txt-muted)' }}>
+              Previous Answers ({answers.length})
+            </p>
+            <div className="space-y-2">
               {[...answers].reverse().map((ans, i) => {
                 const q = questions.find(q => q.id === ans.question_id);
-                const pct = (ans.total_score / 8) * 100;
-                const color = pct >= 75 ? '#16A34A' : pct >= 50 ? '#2563EB' : pct >= 30 ? '#D97706' : '#DC2626';
+                const col = ans.total_score >= 6 ? '#059669' : ans.total_score >= 4 ? 'var(--blue-600)' : '#D97706';
                 return (
                   <details key={i}>
-                    <summary style={{
-                      padding: '12px 16px', background: 'white', border: '1px solid var(--border)',
-                      borderRadius: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      fontSize: 13, fontWeight: 500, listStyle: 'none'
-                    }}>
-                      <span style={{ color: 'var(--text-sub)' }}>{q?.skill} — Q{questions.indexOf(q!) + 1}</span>
-                      <span style={{ fontWeight: 700, color }}>{ans.total_score.toFixed(1)}/8</span>
+                    <summary className="card card-hover py-3 cursor-pointer flex items-center justify-between list-none"
+                             style={{ padding: '12px 20px' }}>
+                      <span className="font-medium text-sm" style={{ color: 'var(--txt-primary)' }}>
+                        {q?.skill || 'Question'} — Q{questions.indexOf(q!) + 1}
+                      </span>
+                      <span className="font-bold text-sm" style={{ color: col }}>{ans.total_score.toFixed(1)}/8</span>
                     </summary>
-                    <div style={{ padding: '10px 16px 10px', background: 'var(--gray-50)', borderRadius: '0 0 12px 12px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                      {ans.reasoning}
+                    <div className="pl-4 py-2">
+                      <p className="text-xs italic" style={{ color: 'var(--txt-muted)' }}>{ans.reasoning}</p>
                     </div>
                   </details>
                 );
