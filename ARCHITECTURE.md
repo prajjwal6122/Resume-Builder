@@ -7,11 +7,11 @@
 
 SkillAssess is a microservices-based system with three main layers:
 
-1. **Frontend Layer** (React) – User-facing UI, real-time chat interface
+1. **Frontend Layer** (Next.js) – User-facing UI, real-time chat interface
 2. **Backend Layer** (Node.js/Express) – API orchestration, database management, auth
 3. **AI Layer** (Python FastAPI) – LLM orchestration, skill extraction, evaluation logic
 
-These communicate via REST APIs and WebSockets, with Redis caching for performance.
+These communicate via REST APIs and WebSockets, with Supabase used for persistence, auth, and storage.
 
 ---
 

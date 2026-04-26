@@ -93,24 +93,24 @@ Personalized Learning Plan
 ## Tech Stack
 
 ### Frontend
-- **React 18** – Interactive UI
+- **Next.js** – React-based app framework
+- **React 18** – UI layer
 - **TypeScript** – Type safety
 - **Tailwind CSS** – Styling
 - **Zustand** – State management
-- **Socket.IO** – Real-time chat
+- **Socket.IO** – Real-time chat (optional)
 
 ### Backend
-- **Node.js + Express** – API server
+- **Node.js + Express** – API server (or Next.js API routes)
 - **Python FastAPI** – AI pipeline (separate microservice)
-- **PostgreSQL** – Persistent storage
-- **Redis** – Caching + session management
+- **Supabase** – managed PostgreSQL, auth, storage, and realtime
 - **LangChain** – LLM orchestration
 - **OpenAI GPT-4** – Core intelligence
 
 ### Deployment
 - **Docker** – Containerization
-- **AWS EC2 / Railway** – Server hosting
-- **Vercel / Netlify** – Frontend CDN
+- **Vercel** – Frontend hosting
+- **Supabase** – database + auth + storage hosting
 
 ---
 
@@ -118,7 +118,7 @@ Personalized Learning Plan
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Frontend (React)                      │
+│                    Frontend (Next.js)                    │
 │  [Upload] → [Chat Assessment] → [Dashboard] → [Plan]   │
 └────────────────────────┬────────────────────────────────┘
                          │
@@ -145,8 +145,8 @@ Personalized Learning Plan
                          │
                     ↓ Persistence ↓
 ┌────────────────────────────────────────────────────────┐
-│    PostgreSQL Database (Users, Resumes, Plans)         │
-│    Redis Cache (Sessions, Embeddings)                  │
+│    Supabase (PostgreSQL + Auth + Storage)             │
+│    Optional cache for session / embeddings             │
 └─────────────────────────────────────────────────────────┘
 ```
 

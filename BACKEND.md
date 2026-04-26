@@ -6,11 +6,11 @@
 ## Backend Overview
 
 The backend is a Node.js + Express server that orchestrates:
-- User authentication (JWT-based)
+- User authentication (JWT-based or Supabase Auth integration)
 - Document parsing (resume/JD extraction)
 - API communication with the AI pipeline
-- Database persistence (PostgreSQL)
-- Real-time WebSocket updates (Socket.IO)
+- Database persistence (Supabase-managed PostgreSQL)
+- Real-time WebSocket updates (Socket.IO, optional)
 
 **Key Design Principle:** Backend is stateless and thin. Heavy lifting (LLM calls, scoring) happens in the Python AI pipeline.
 

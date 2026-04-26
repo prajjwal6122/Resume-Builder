@@ -5,7 +5,7 @@
 
 ## Frontend Overview
 
-The frontend is a React 18 + TypeScript application that provides:
+The frontend is a Next.js + React 18 + TypeScript application that provides:
 - User authentication (login/register)
 - Document upload and preview
 - Real-time conversational assessment interface
